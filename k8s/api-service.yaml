@@ -1,0 +1,26 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sample-api-svc
+  labels:
+    app: sample-api
+spec:
+  ports:
+  - port: 80
+    targetPort: 5000
+    name: web
+  type: NodePort
+  selector:
+    app: sample-api
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: sample-api-ingress
+  labels:
+    app: sample-api
+spec:
+  backend:
+    serviceName: sample-api-svc
+    servicePort: web

@@ -1,0 +1,76 @@
+---
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: sc-multizone
+provisioner: kubernetes.io/gce-pd
+parameters:
+  type: pd-standard
+  replication-type: regional-pd
+  zones: us-central1-a, us-central1-c
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: sample-api-nfs-pvc
+spec:
+  storageClassName: sc-multizone
+  resources:
+    requests:
+      storage: 200Gi
+  accessModes:
+    - ReadWriteOnce
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: nfs-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      role: nfs-server
+  template:
+    metadata:
+      labels:
+        role: nfs-server
+    spec:
+      volumes:
+      - name: nfs-vol
+        persistentVolumeClaim:
+          claimName: sample-api-nfs-pvc
+      restartPolicy: Always
+      containers:
+      - name: nfs-server
+        image: itsthenetwork/nfs-server-alpine
+        env:
+        - name: SHARED_DIRECTORY
+          value: /app/data
+        ports:
+          - name: nfs
+            containerPort: 2049
+        securityContext:
+          privileged: true
+        volumeMounts:
+          - mountPath: /app/data
+            name: nfs-vol
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                - key: "failure-domain.beta.kubernetes.io/zone"
+                  operator: In
+                  values: ["us-central1-a", "us-central1-c"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nfs-server
+spec:
+  ports:
+    - name: nfs
+      port: 2049
+  selector:
+    role: nfs-server
+

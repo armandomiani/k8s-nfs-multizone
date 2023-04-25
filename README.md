@@ -17,3 +17,5 @@
 ## Applying manifests
 
 * make apply
+
+test
